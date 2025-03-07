@@ -19,12 +19,12 @@ if CHECK_PIL.is_available:
     from PIL import Image  # type: ignore
 
 
-def resolve_from_img_obj(img_obj: "ImageClassType") -> ImageSingle:
+def resolve_from_img_obj(img_obj: "ImageClassType", create_timestamp: int) -> ImageSingle:
     """Resolve an image from a ImageClassType Object."""
-    return ImageSingle(image=img_obj)
+    return ImageSingle(image=img_obj, create_timestamp=create_timestamp)
 
 
-async def resolve_from_img_url(img_url: str, session: "aiohttp.ClientSession") -> ImageSingle:
+async def resolve_from_img_url(img_url: str, session: "aiohttp.ClientSession", create_timestamp: int) -> ImageSingle:
     """Resolve an image from an URL."""
     try:
         # requests.get(img_url, stream=True).raw
@@ -39,38 +39,40 @@ async def resolve_from_img_url(img_url: str, session: "aiohttp.ClientSession") -
             raise ImageCorruption(
                 f"An image in your request is too small for processing {img.size}"
             )
-        return ImageSingle(image=img)
+        return ImageSingle(image=img, create_timestamp=create_timestamp)
     except Exception as e:
         raise ImageCorruption(
             f"error opening the payload from an image in your request from url: {e}"
         )
 
 
-def resolve_from_img_bytes(bytes_img: bytes) -> ImageSingle:
+def resolve_from_img_bytes(bytes_img: bytes, create_timestamp: int) -> ImageSingle:
     """Resolve an image from a Data URI"""
     try:
         img = Image.open(io.BytesIO(bytes_img))
-        return ImageSingle(image=img)
+        return ImageSingle(image=img, create_timestamp=create_timestamp)
     except Exception as e:
         raise ImageCorruption(f"error decoding data URI: {e}")
 
 
 async def resolve_image(
-    img: Union[str, "ImageClassType", bytes], session: "aiohttp.ClientSession"
+    img: Union[str, "ImageClassType", bytes], session: "aiohttp.ClientSession",
+    create_timestamp: int
 ) -> ImageSingle:
     """Resolve a single image."""
     if isinstance(img, Image.Image):
-        return resolve_from_img_obj(img)
+        return resolve_from_img_obj(img, create_timestamp)
     elif isinstance(img, bytes):
-        return resolve_from_img_bytes(img)
+        return resolve_from_img_bytes(img, create_timestamp)
     elif isinstance(img, str):
-        return await resolve_from_img_url(img, session=session)
+        return await resolve_from_img_url(img, session=session, create_timestamp=create_timestamp)
     else:
         raise ValueError(f"Invalid image type: {img} is neither str nor ImageClassType object")
 
 
 async def resolve_images(
     images: list[Union[str, "ImageClassType", bytes]],
+    create_timestamp: int
 ) -> list[ImageSingle]:
     """Resolve images from URLs or ImageClassType Objects using multithreading."""
     # TODO: improve parallel requests, safety, error handling
@@ -79,6 +81,6 @@ async def resolve_images(
 
     resolved_imgs = []
     async with aiohttp.ClientSession(trust_env=True) as session:
-        resolved_imgs = await asyncio.gather(*[resolve_image(img, session) for img in images])
+        resolved_imgs = await asyncio.gather(*[resolve_image(img, session, create_timestamp) for img in images])
 
     return resolved_imgs

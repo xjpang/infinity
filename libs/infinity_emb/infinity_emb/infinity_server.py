@@ -4,11 +4,11 @@
 import asyncio
 import os
 import signal
-import time
 import threading
+import time
 import uuid
 from contextlib import asynccontextmanager
-from typing import Any, Optional, Union, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING, Union
 
 import infinity_emb
 from infinity_emb.args import EngineArgs
@@ -16,14 +16,8 @@ from infinity_emb.engine import AsyncEmbeddingEngine, AsyncEngineArray
 from infinity_emb.env import MANAGER
 from infinity_emb.fastapi_schemas import docs, errors
 from infinity_emb.log_handler import logger
-from infinity_emb.primitives import (
-    AudioCorruption,
-    ImageCorruption,
-    Modality,
-    ModelCapabilites,
-    MatryoshkaDimError,
-    ModelNotDeployedError,
-)
+from infinity_emb.primitives import (AudioCorruption, ImageCorruption, MatryoshkaDimError, Modality, ModelCapabilites,
+                                     ModelNotDeployedError)
 from infinity_emb.telemetry import PostHog, StartupTelemetry, telemetry_log_info
 
 if TYPE_CHECKING:
@@ -31,8 +25,8 @@ if TYPE_CHECKING:
 
 
 def send_telemetry_start(
-    engine_args_list: list[EngineArgs],
-    capabilities_list: list[set[ModelCapabilites]],
+        engine_args_list: list[EngineArgs],
+        capabilities_list: list[set[ModelCapabilites]],
 ):
     time.sleep(60)
     session_id = uuid.uuid4().hex
@@ -48,15 +42,15 @@ def send_telemetry_start(
 
 
 def create_server(
-    *,
-    engine_args_list: list[EngineArgs],
-    url_prefix: str = MANAGER.url_prefix,
-    doc_extra: dict[str, Any] = {},
-    redirect_slash: str = MANAGER.redirect_slash,
-    preload_only: bool = MANAGER.preload_only,
-    permissive_cors: bool = MANAGER.permissive_cors,
-    api_key: str = MANAGER.api_key,
-    proxy_root_path: str = MANAGER.proxy_root_path,
+        *,
+        engine_args_list: list[EngineArgs],
+        url_prefix: str = MANAGER.url_prefix,
+        doc_extra: dict[str, Any] = {},
+        redirect_slash: str = MANAGER.redirect_slash,
+        preload_only: bool = MANAGER.preload_only,
+        permissive_cors: bool = MANAGER.permissive_cors,
+        api_key: str = MANAGER.api_key,
+        proxy_root_path: str = MANAGER.proxy_root_path,
 ):
     """
     creates the FastAPI server for a set of EngineArgs.
@@ -145,7 +139,7 @@ def create_server(
         oauth2_scheme = HTTPBearer(auto_error=False)
 
         async def validate_token(
-            credential: Optional[HTTPAuthorizationCredentials] = Depends(oauth2_scheme),
+                credential: Optional[HTTPAuthorizationCredentials] = Depends(oauth2_scheme),
         ):
             if credential is None or credential.credentials != api_key:
                 raise HTTPException(
@@ -229,7 +223,7 @@ def create_server(
         return engine
 
     def _resolve_mixed_input(
-        inputs: Union["DataURIorURL", list["DataURIorURL"]],
+            inputs: Union["DataURIorURL", list["DataURIorURL"]],
     ) -> list[Union[str, bytes]]:
         if hasattr(inputs, "host"):
             # if it is a single url
@@ -387,6 +381,11 @@ def create_server(
                 f"{ex.__class__} -> {ex}",
                 code=status.HTTP_400_BAD_REQUEST,
             )
+        except asyncio.TimeoutError as ex:
+            duration = (time.perf_counter() - start) * 1000
+            logger.info(f"TimeoutError: {ex}, duration:{duration}")
+            raise errors.OpenAIException(f"The inference request in queue timeout. TimeoutError: {ex}",
+                                         code=status.HTTP_408_REQUEST_TIMEOUT)
         except Exception as ex:
             raise errors.OpenAIException(
                 f"InternalServerError: {ex}",
@@ -439,6 +438,10 @@ def create_server(
                 f"ModelNotDeployedError: model=`{data.model}` does not support `rerank`. Reason: {ex}",
                 code=status.HTTP_400_BAD_REQUEST,
             )
+        except asyncio.TimeoutError as ex:
+            logger.info(f"TimeoutError: {ex}")
+            raise errors.OpenAIException(f"The inference request in queue timeout. TimeoutError: {ex}",
+                                         code=status.HTTP_408_REQUEST_TIMEOUT)
         except Exception as ex:
             raise errors.OpenAIException(
                 f"InternalServerError: {ex}",
@@ -483,6 +486,10 @@ def create_server(
                 f"ModelNotDeployedError: model=`{data.model}` does not support `classify`. Reason: {ex}",
                 code=status.HTTP_400_BAD_REQUEST,
             )
+        except asyncio.TimeoutError as ex:
+            logger.info(f"TimeoutError: {ex}")
+            raise errors.OpenAIException(f"The inference request in queue timeout. TimeoutError: {ex}",
+                                         code=status.HTTP_408_REQUEST_TIMEOUT)
         except Exception as ex:
             raise errors.OpenAIException(
                 f"InternalServerError: {ex}",
@@ -542,6 +549,10 @@ def create_server(
                 f"ModelNotDeployedError: model=`{data.model}` does not support `image_embed`. Reason: {ex}",
                 code=status.HTTP_400_BAD_REQUEST,
             )
+        except asyncio.TimeoutError as ex:
+            logger.info(f"TimeoutError: {ex}")
+            raise errors.OpenAIException(f"The inference request in queue timeout. TimeoutError: {ex}",
+                                         code=status.HTTP_408_REQUEST_TIMEOUT)
         except Exception as ex:
             raise errors.OpenAIException(
                 f"InternalServerError: {ex}",
@@ -601,6 +612,10 @@ def create_server(
                 f"ModelNotDeployedError: model=`{data.model}` does not support `audio_embed`. Reason: {ex}",
                 code=status.HTTP_400_BAD_REQUEST,
             )
+        except asyncio.TimeoutError as ex:
+            logger.info(f"TimeoutError: {ex}")
+            raise errors.OpenAIException(f"The inference request in queue timeout. TimeoutError: {ex}",
+                                         code=status.HTTP_408_REQUEST_TIMEOUT)
         except Exception as ex:
             raise errors.OpenAIException(
                 f"InternalServerError: {ex}",

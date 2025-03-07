@@ -14,20 +14,9 @@ import enum
 import sys
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-
 # cached_porperty
 from functools import lru_cache
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Generic,
-    Literal,
-    Optional,
-    Type,
-    TypedDict,
-    TypeVar,
-    Union,
-)
+from typing import (Any, Generic, Literal, Optional, TYPE_CHECKING, Type, TypeVar, TypedDict, Union)
 
 import numpy as np
 import numpy.typing as npt
@@ -200,13 +189,15 @@ class LoadingStrategy:
 
 @dataclass(**dataclass_args)
 class AbstractSingle(ABC):
+    create_timestamp: int
+
     @abstractmethod
     def str_repr(self) -> str:
         pass
 
     @abstractmethod
     def to_input(
-        self,
+            self,
     ) -> Union[str, tuple[str, str], "ImageClass", "AudioInputType"]:
         pass
 
@@ -298,6 +289,13 @@ class EmbeddingInner(AbstractInner):
         except asyncio.exceptions.InvalidStateError:
             pass
 
+    def timeout(self):
+        """marks the future for timeout."""
+        try:
+            self.future.set_exception(asyncio.TimeoutError())
+        except asyncio.exceptions.InvalidStateError:
+            pass
+
     async def get_result(self) -> EmbeddingReturnType:
         """waits for future to complete and returns result"""
         await self.future
@@ -328,6 +326,13 @@ class ReRankInner(AbstractInner):
         assert self.score is not None
         return self.score
 
+    def timeout(self):
+        """marks the future for timeout."""
+        try:
+            self.future.set_exception(asyncio.TimeoutError())
+        except asyncio.exceptions.InvalidStateError:
+            pass
+
 
 @dataclass(order=True)
 class PredictInner(AbstractInner):
@@ -352,6 +357,12 @@ class PredictInner(AbstractInner):
         assert self.class_encoding is not None
         return self.class_encoding
 
+    def timeout(self):
+        """marks the future for timeout."""
+        try:
+            self.future.set_exception(asyncio.TimeoutError())
+        except asyncio.exceptions.InvalidStateError:
+            pass
 
 @dataclass(order=True, **dataclass_args)
 class ImageInner(AbstractInner):
@@ -376,6 +387,12 @@ class ImageInner(AbstractInner):
         assert self.embedding is not None
         return self.embedding
 
+    def timeout(self):
+        """marks the future for timeout."""
+        try:
+            self.future.set_exception(asyncio.TimeoutError())
+        except asyncio.exceptions.InvalidStateError:
+            pass
 
 @dataclass(order=True, **dataclass_args)
 class AudioInner(AbstractInner):
@@ -400,6 +417,12 @@ class AudioInner(AbstractInner):
         assert self.embedding is not None
         return self.embedding
 
+    def timeout(self):
+        """marks the future for timeout."""
+        try:
+            self.future.set_exception(asyncio.TimeoutError())
+        except asyncio.exceptions.InvalidStateError:
+            pass
 
 QueueItemInner = Union[EmbeddingInner, ReRankInner, PredictInner, ImageInner, AudioInner]
 

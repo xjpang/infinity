@@ -26,7 +26,7 @@ async def test_cache():
             content=EmbeddingSingle(sentence=sentence), future=loop.create_future()
         )
         sample_embedded = EmbeddingInner(
-            content=EmbeddingSingle(sentence=sentence),
+            content=EmbeddingSingle(sentence=sentence, create_timestamp=0),
             future=loop.create_future(),
             embedding=None,
         )
