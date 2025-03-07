@@ -4,7 +4,7 @@
 import random
 from abc import ABC, abstractmethod
 from time import perf_counter
-from typing import TYPE_CHECKING, Any, Union
+from typing import Any, TYPE_CHECKING, Union
 
 from infinity_emb._optional_imports import CHECK_PIL  # , CHECK_SOUNDFILE
 from infinity_emb.primitives import (
@@ -28,7 +28,6 @@ from infinity_emb.transformer.quantization.interface import quant_embedding_deco
 INPUT_FEATURE = Any
 OUT_FEATURES = Any
 
-
 if TYPE_CHECKING:
     from PIL.Image import Image as ImageClass
 
@@ -36,6 +35,7 @@ if TYPE_CHECKING:
 
 if CHECK_PIL.is_available:
     from PIL import Image
+
 
 # if CHECK_SOUNDFILE:
 #     import soundfile as sf
@@ -87,7 +87,7 @@ class BaseEmbedder(BaseTransformer):  # Inherit from ABC(Abstract base class)
     def warmup(self, *, batch_size: int = 64, n_tokens=1) -> tuple[float, float, str]:
         sample = ["warm " * n_tokens] * batch_size
         inp = [
-            EmbeddingInner(content=EmbeddingSingle(sentence=s), future=None)  # type: ignore
+            EmbeddingInner(content=EmbeddingSingle(sentence=s, create_timestamp=0), future=None)  # type: ignore
             for s in sample
         ]
         return run_warmup(self, inp)
@@ -116,16 +116,16 @@ class BaseTIMM(BaseEmbedder):  # Inherit from ABC(Abstract base class)
         sample_text = ["warm " * n_tokens] * max(1, batch_size // 2)
         sample_image = [Image.new("RGB", (128, 128), (255, 255, 255))] * max(1, batch_size // 2)  # type: ignore
         inp = [
-            # TODO: warmup for images
-            ImageInner(content=ImageSingle(image=img), future=None)  # type: ignore
-            for img in sample_image
-        ] + [
-            EmbeddingInner(
-                content=EmbeddingSingle(sentence=s),
-                future=None,  # type: ignore
-            )
-            for s in sample_text
-        ]
+                  # TODO: warmup for images
+                  ImageInner(content=ImageSingle(image=img, create_timestamp=0), future=None)  # type: ignore
+                  for img in sample_image
+              ] + [
+                  EmbeddingInner(
+                      content=EmbeddingSingle(sentence=s, create_timestamp=0),
+                      future=None,  # type: ignore
+                  )
+                  for s in sample_text
+              ]
         random.shuffle(inp)
 
         return run_warmup(self, inp)
@@ -158,18 +158,18 @@ class BaseAudioEmbedModel(BaseEmbedder):  # Inherit from ABC(Abstract base class
         sample_text = ["warm " * n_tokens] * max(1, batch_size // 2)
         # sample_audios = [sf.SoundFile()] * max(1, batch_size // 2)  # type: ignore
         inp: list[Union[AudioInner, EmbeddingInner]] = (
-            [
-                # TODO: warmup for audio
-                # AudioInner(content=AudioSingle(audio=audio), future=None)  # type: ignore
-                # for audio in sample_audios
-            ]
-            + [
-                EmbeddingInner(
-                    content=EmbeddingSingle(sentence=s),
-                    future=None,  # type: ignore
-                )
-                for s in sample_text
-            ]
+                [
+                    # TODO: warmup for audio
+                    # AudioInner(content=AudioSingle(audio=audio), future=None)  # type: ignore
+                    # for audio in sample_audios
+                ]
+                + [
+                    EmbeddingInner(
+                        content=EmbeddingSingle(sentence=s, create_timestamp=0),
+                        future=None,  # type: ignore
+                    )
+                    for s in sample_text
+                ]
         )
         random.shuffle(inp)
 
@@ -190,7 +190,7 @@ class BaseClassifer(BaseTransformer):  # Inherit from ABC(Abstract base class)
     def warmup(self, *, batch_size: int = 64, n_tokens=1) -> tuple[float, float, str]:
         sample = ["warm " * n_tokens] * batch_size
         inp = [
-            PredictInner(content=PredictSingle(sentence=s), future=None)  # type: ignore
+            PredictInner(content=PredictSingle(sentence=s, create_timestamp=0), future=None)  # type: ignore
             for s in sample
         ]
         return run_warmup(self, inp)
@@ -212,7 +212,7 @@ class BaseCrossEncoder(BaseTransformer):  # Inherit from ABC(Abstract base class
         sample = ["warm " * n_tokens] * batch_size
         inp = [
             ReRankInner(
-                content=ReRankSingle(query=s, document=s),
+                content=ReRankSingle(query=s, document=s, create_timestamp=0),
                 future=None,  # type: ignore
             )
             for s in sample
@@ -239,10 +239,10 @@ def run_warmup(model, inputs) -> tuple[float, float, str]:
         f"Getting timings for batch_size={len(inputs)}"
         " and avg tokens per sentence="
         f"{model.tokenize_lengths([i.content.str_repr() for i in inputs])[0]}\n"
-        f"\t{(tokenization_time - start)*1000:.2f} \t ms tokenization\n"
-        f"\t{(inference_time-tokenization_time)*1000:.2f} \t ms inference\n"
-        f"\t{(post_time-inference_time)*1000:.2f} \t ms post-processing\n"
-        f"\t{(post_time - start)*1000:.2f} \t ms total\n"
+        f"\t{(tokenization_time - start) * 1000:.2f} \t ms tokenization\n"
+        f"\t{(inference_time - tokenization_time) * 1000:.2f} \t ms inference\n"
+        f"\t{(post_time - inference_time) * 1000:.2f} \t ms post-processing\n"
+        f"\t{(post_time - start) * 1000:.2f} \t ms total\n"
         f"embeddings/sec: {len(inputs) / (post_time - start):.2f}"
     )
 

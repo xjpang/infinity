@@ -2,8 +2,10 @@
 # Copyright (c) 2023-now michaelfeil
 
 import asyncio
+import os
 import threading
-from typing import Optional, Generator
+import time
+from typing import Generator, Optional
 
 from infinity_emb.inference.caching_layer import Cache
 from infinity_emb.primitives import (
@@ -22,6 +24,7 @@ class CustomFIFOQueue:
         self._queue: list[PrioritizedQueueItem] = []
         # event that indicates items in queue.
         self._sync_event = threading.Event()
+        self.timeout = int(os.getenv('INFINITY_REQUEST_TIMEOUT', '0'))  # ms
 
     def __len__(self):
         return len(self._queue)
@@ -33,7 +36,7 @@ class CustomFIFOQueue:
         self._sync_event.set()
 
     def pop_optimal_batches(
-        self, size: int, max_n_batches: int = 4, timeout=0.2, **kwargs
+            self, size: int, max_n_batches: int = 4, timeout=0.2, **kwargs
     ) -> Generator[list[QueueItemInner], None, None]:
         """
         pop batch `up to size` + `continuous (sorted)` from queue
@@ -50,6 +53,8 @@ class CustomFIFOQueue:
             None: if there is not a single item in self._queue after timeout
             else: list[EmbeddingInner] with len(1<=size)
         """
+        self.clear_timeout_item(self.timeout)
+
         if not self._queue:
             if not self._sync_event.wait(timeout):
                 return
@@ -73,7 +78,20 @@ class CustomFIFOQueue:
         ]
 
         for i in range(0, len(new_items), size):
-            yield new_items[i : i + size]
+            yield new_items[i: i + size]
+
+    def clear_timeout_item(self, timeout: int):
+        if self.timeout == 0 or not self._queue:
+            return
+
+        cur_timestamp = int(time.time() * 1000)
+        with (self._lock_queue_event):
+            for queue_item in self._queue:
+                if queue_item.item.content.create_timestamp < cur_timestamp and (
+                        cur_timestamp - queue_item.item.content.create_timestamp) > timeout:
+                    queue_item.item.timeout()
+                else:
+                    break
 
 
 class ResultKVStoreFuture:

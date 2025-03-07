@@ -9,7 +9,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from queue import Queue
-from typing import Any, Optional, Sequence, Union, TYPE_CHECKING
+from typing import Any, Optional, Sequence, TYPE_CHECKING, Union
 
 import numpy as np
 
@@ -18,30 +18,16 @@ from infinity_emb.inference.caching_layer import Cache
 from infinity_emb.inference.queue import CustomFIFOQueue, ResultKVStoreFuture
 from infinity_emb.inference.threading_asyncio import to_thread
 from infinity_emb.log_handler import logger
-from infinity_emb.primitives import (
-    AbstractSingle,
-    ClassifyReturnType,
-    EmbeddingReturnType,
-    EmbeddingSingle,
-    ImageClassType,
-    ModelCapabilites,
-    ModelNotDeployedError,
-    MatryoshkaDimError,
-    OverloadStatus,
-    PredictSingle,
-    PrioritizedQueueItem,
-    RerankReturnType,
-    ReRankSingle,
-    get_inner_item,
-)
-
+from infinity_emb.primitives import (AbstractSingle, ClassifyReturnType, EmbeddingReturnType, EmbeddingSingle,
+                                     ImageClassType, MatryoshkaDimError, ModelCapabilites, ModelNotDeployedError,
+                                     OverloadStatus, PredictSingle, PrioritizedQueueItem, ReRankSingle,
+                                     RerankReturnType, get_inner_item)
 from infinity_emb.transformer.audio.utils import resolve_audios
 from infinity_emb.transformer.utils import get_lengths_with_tokenize
 from infinity_emb.transformer.vision.utils import resolve_images
 
 if TYPE_CHECKING:
     from infinity_emb.transformer.abstract import BaseTypeHint
-
 
 QUEUE_TIMEOUT = 0.5
 
@@ -63,7 +49,7 @@ class ThreadPoolExecutorReadOnly:
 
 
 def matryososka_slice(
-    embeddings: list[np.ndarray], matryoshka_dim: Optional[int]
+        embeddings: list[np.ndarray], matryoshka_dim: Optional[int]
 ) -> list[np.ndarray]:
     if matryoshka_dim:
         if 1 > matryoshka_dim or matryoshka_dim > len(embeddings[0]):
@@ -76,14 +62,14 @@ def matryososka_slice(
 
 class BatchHandler:
     def __init__(
-        self,
-        model_replicas: list["BaseTypeHint"],
-        max_batch_size: int,
-        max_queue_wait: int = MANAGER.queue_size,
-        batch_delay: float = 5e-3,
-        vector_disk_cache_path: str = "",
-        verbose=False,
-        lengths_via_tokenize: bool = False,
+            self,
+            model_replicas: list["BaseTypeHint"],
+            max_batch_size: int,
+            max_queue_wait: int = MANAGER.queue_size,
+            batch_delay: float = 5e-3,
+            vector_disk_cache_path: str = "",
+            verbose=False,
+            lengths_via_tokenize: bool = False,
     ) -> None:
         """
         performs the scheduling of the dynamic batching around the model.
@@ -150,7 +136,7 @@ class BatchHandler:
             )
 
     async def embed(
-        self, sentences: list[str], matryoshka_dim: Optional[int] = None
+            self, sentences: list[str], matryoshka_dim: Optional[int] = None
     ) -> tuple[list["EmbeddingReturnType"], int]:
         """Schedule a sentence to be embedded. Awaits until embedded.
 
@@ -169,17 +155,18 @@ class BatchHandler:
             raise ModelNotDeployedError(
                 "the loaded moded cannot fullyfill `embed`. " f"Options are {self.capabilities}."
             )
-        input_sentences = [EmbeddingSingle(sentence=s) for s in sentences]
+        create_timestamp = int(time.time() * 1000)
+        input_sentences = [EmbeddingSingle(sentence=s, create_timestamp=create_timestamp) for s in sentences]
 
         embeddings, usage = await self._schedule(input_sentences)
         return matryososka_slice(embeddings, matryoshka_dim), usage
 
     async def rerank(
-        self,
-        query: str,
-        docs: list[str],
-        raw_scores: bool = False,
-        top_n: Optional[int] = None,
+            self,
+            query: str,
+            docs: list[str],
+            raw_scores: bool = False,
+            top_n: Optional[int] = None,
     ) -> tuple[list[RerankReturnType], int]:
         """Schedule a query to be reranked with documents. Awaits until reranked.
 
@@ -202,7 +189,8 @@ class BatchHandler:
             raise ModelNotDeployedError(
                 "the loaded moded cannot fullyfill `rerank`. " f"Options are {self.capabilities}."
             )
-        rerankables = [ReRankSingle(query=query, document=doc) for doc in docs]
+        create_timestamp = int(time.time() * 1000)
+        rerankables = [ReRankSingle(query=query, document=doc, create_timestamp=create_timestamp) for doc in docs]
         scores, usage = await self._schedule(rerankables)
 
         if not raw_scores:
@@ -221,7 +209,7 @@ class BatchHandler:
         return results, usage
 
     async def classify(
-        self, *, sentences: list[str], raw_scores: bool = True
+            self, *, sentences: list[str], raw_scores: bool = True
     ) -> tuple[list[ClassifyReturnType], int]:
         """Schedule a query to be classified with documents. Awaits until classified.
 
@@ -241,7 +229,8 @@ class BatchHandler:
             raise ModelNotDeployedError(
                 "the loaded moded cannot fullyfill `classify`. " f"Options are {self.capabilities}."
             )
-        items = [PredictSingle(sentence=s) for s in sentences]
+        create_timestamp = int(time.time() * 1000)
+        items = [PredictSingle(sentence=s, create_timestamp=create_timestamp) for s in sentences]
         classifications, usage = await self._schedule(items)
 
         if raw_scores:
@@ -251,10 +240,10 @@ class BatchHandler:
         return classifications, usage
 
     async def image_embed(
-        self,
-        *,
-        images: list[Union[str, "ImageClassType", bytes]],
-        matryoshka_dim: Optional[int] = None,
+            self,
+            *,
+            images: list[Union[str, "ImageClassType", bytes]],
+            matryoshka_dim: Optional[int] = None,
     ) -> tuple[list["EmbeddingReturnType"], int]:
         """Schedule a images and sentences to be embedded. Awaits until embedded.
 
@@ -275,13 +264,13 @@ class BatchHandler:
                 "the loaded moded cannot fullyfill `image_embed`. "
                 f"Options are {self.capabilities}."
             )
-
-        items = await resolve_images(images)
+        create_timestamp = int(time.time() * 1000)
+        items = await resolve_images(images, create_timestamp)
         embeddings, usage = await self._schedule(items)
         return matryososka_slice(embeddings, matryoshka_dim), usage
 
     async def audio_embed(
-        self, *, audios: list[Union[str, bytes]], matryoshka_dim: Optional[int] = None
+            self, *, audios: list[Union[str, bytes]], matryoshka_dim: Optional[int] = None
     ) -> tuple[list["EmbeddingReturnType"], int]:
         """Schedule audios and sentences to be embedded. Awaits until embedded.
 
@@ -374,7 +363,7 @@ class BatchHandler:
             )
 
     def _publish_towards_model(
-        self,
+            self,
     ):
         """worker that moves batches from the priority_queue towards the model.
         Runs in a separate thread, returns when self._shutdown.is_set().
@@ -385,8 +374,8 @@ class BatchHandler:
         try:
             while not self._shutdown.is_set():
                 if not self._publish_to_model_queue.empty() and (
-                    self._publish_to_model_queue.full()
-                    or (len(self._queue_prio) < self.max_batch_size * max_n_batches)
+                        self._publish_to_model_queue.full()
+                        or (len(self._queue_prio) < self.max_batch_size * max_n_batches)
                 ):
                     # patience:
                     # do not pop a batch if self._publish_to_model_queue still has item(s) left.
@@ -419,7 +408,7 @@ class BatchHandler:
 
     @staticmethod
     async def _subscribe_to_model(
-        shutdown: ShutdownReadOnly, result_queue: Queue, tp: ThreadPoolExecutor
+            shutdown: ShutdownReadOnly, result_queue: Queue, tp: ThreadPoolExecutor
     ):
         """background thread for reading  exits only if shutdown.is_set()"""
         schedule_errors = 0
@@ -484,14 +473,14 @@ class ModelWorker:
     """Model Worker. Handles pre, forward, and post-processing of any model."""
 
     def __init__(
-        self,
-        shutdown: ShutdownReadOnly,
-        model: "BaseTypeHint",
-        threadpool: ThreadPoolExecutorReadOnly,
-        input_q: Queue,
-        output_q: Queue,
-        batch_delay: float = 5e-3,
-        verbose=False,
+            self,
+            shutdown: ShutdownReadOnly,
+            model: "BaseTypeHint",
+            threadpool: ThreadPoolExecutorReadOnly,
+            input_q: Queue,
+            output_q: Queue,
+            batch_delay: float = 5e-3,
+            verbose=False,
     ) -> None:
         self._shutdown = shutdown
         self._model = model
@@ -598,8 +587,8 @@ class ModelWorker:
                     continue
 
                 if (
-                    self._postprocess_queue.empty()
-                    and self._last_inference < time.perf_counter() + self._batch_delay * 2
+                        self._postprocess_queue.empty()
+                        and self._last_inference < time.perf_counter() + self._batch_delay * 2
                 ):
                     # 5 ms, assuming this is below
                     # 3-50ms for inference on avg.
