@@ -80,6 +80,7 @@ class BatchHandler:
         model_replicas: list["BaseTypeHint"],
         max_batch_size: int,
         max_queue_wait: int = MANAGER.queue_size,
+        queue_timeout: float = MANAGER.queue_timeout,
         batch_delay: float = 5e-3,
         vector_disk_cache_path: str = "",
         verbose=False,
@@ -93,6 +94,7 @@ class BatchHandler:
             model (BaseTransformer): the base class of the model to be used
             max_batch_size (int): max batch size of dynamic batch size
             max_queue_wait (int, optional): max items to queue in the batch, default 32_000
+            queue_timeout (float, optional): max time (in seconds) a request can wait in queue, default 300
             batch_delay (float, optional): sleep in seconds, wait time for pre/post methods.
                 Best result: setting to 1/2 the minimal expected
                 time for core_encode method / "gpu inference".
@@ -103,6 +105,7 @@ class BatchHandler:
         """
 
         self._max_queue_wait = max_queue_wait
+        self._queue_timeout = queue_timeout
         self._lengths_via_tokenize = lengths_via_tokenize
 
         self._shutdown = threading.Event()
@@ -316,12 +319,14 @@ class BatchHandler:
         new_prioqueue: list[PrioritizedQueueItem] = []
 
         inner_item = get_inner_item(type(list_queueitem[0]))
+        current_time = time.time()
 
         for re, p in zip(list_queueitem, prios):
             inner = inner_item(content=re, future=self.loop.create_future())  # type: ignore
             item = PrioritizedQueueItem(
                 priority=p,
                 item=inner,
+                enqueue_time=current_time,
             )
             new_prioqueue.append(item)
         self._queue_prio.extend(new_prioqueue)
@@ -398,7 +403,9 @@ class BatchHandler:
                 # decision to attempt to pop a batch
                 # -> will happen if a single datapoint is available
 
-                batches = self._queue_prio.pop_optimal_batches(self.max_batch_size, max_n_batches)
+                batches = self._queue_prio.pop_optimal_batches(
+                    self.max_batch_size, max_n_batches, queue_timeout=self._queue_timeout
+                )
 
                 for batch in batches:
                     if self._verbose:

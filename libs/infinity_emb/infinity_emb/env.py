@@ -194,6 +194,13 @@ class __Infinity_EnvManager:
         return size
 
     @cached_property
+    def queue_timeout(self) -> float:
+        """Maximum time (in seconds) a request can wait in queue before being dropped"""
+        timeout = float(self._optional_infinity_var("queue_timeout", default="30"))
+        assert timeout > 0, "INFINITY_QUEUE_TIMEOUT must be a positive number"
+        return timeout
+
+    @cached_property
     def max_client_batch_size(self) -> int:
         size = int(self._optional_infinity_var("max_client_batch_size", default="2048"))
         assert size > 0, "INFINITY_MAX_CLIENT_BATCH_SIZE must be a positive number"

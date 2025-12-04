@@ -423,6 +423,8 @@ def get_inner_item(single_type: Type[AbstractSingle]) -> Type[QueueItemInner]:
 class PrioritizedQueueItem:
     priority: int
     item: QueueItemInner = field(compare=False)
+    enqueue_time: float = field(default=0.0, compare=False)
+
 
 
 @dataclass
