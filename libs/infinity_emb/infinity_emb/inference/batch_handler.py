@@ -80,7 +80,7 @@ class BatchHandler:
         model_replicas: list["BaseTypeHint"],
         max_batch_size: int,
         max_queue_wait: int = MANAGER.queue_size,
-        batch_delay: float = 5e-3,
+        batch_delay: float = MANAGER.batch_delay,
         vector_disk_cache_path: str = "",
         verbose=False,
         lengths_via_tokenize: bool = False,
@@ -490,7 +490,7 @@ class ModelWorker:
         threadpool: ThreadPoolExecutorReadOnly,
         input_q: Queue,
         output_q: Queue,
-        batch_delay: float = 5e-3,
+        batch_delay: float = MANAGER.batch_delay,
         verbose=False,
     ) -> None:
         self._shutdown = shutdown
