@@ -162,6 +162,7 @@ cython_debug/
 .vscode
 .infinity_cache
 libs/infinity_emb/data/*
+.idea
 
 # macOS
 .DS_Store

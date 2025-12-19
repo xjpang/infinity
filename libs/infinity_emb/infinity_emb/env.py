@@ -265,10 +265,18 @@ class __Infinity_EnvManager:
         return self._to_bool_multiple(
             self._optional_infinity_var_multiple("onnx_disable_optimize", default=["false"])
         )
-    
+
     @cached_property
     def onnx_do_not_prefer_quantized(self):
         return self._to_bool_multiple(
             self._optional_infinity_var_multiple("onnx_do_not_prefer_quantized", default=["false"])
         )
+
+    @cached_property
+    def batch_delay(self) -> float:
+        delay = float(self._optional_infinity_var("batch_delay", default="0.005"))
+        assert delay > 0, "INFINITY_BATCH_DELAY must be a positive number"
+        return delay
+
+
 MANAGER = __Infinity_EnvManager()
