@@ -6,41 +6,28 @@ from __future__ import annotations
 
 import base64
 import time
-from typing import TYPE_CHECKING, Annotated, Any, Iterable, Literal, Optional, Union
+from typing import (TYPE_CHECKING, Annotated, Any, Iterable, Literal, Optional,
+                    Union)
 from uuid import uuid4
 
 import numpy as np
-
 
 from infinity_emb._optional_imports import CHECK_PYDANTIC
 from infinity_emb.primitives import EmbeddingEncodingFormat, Modality
 
 CHECK_PYDANTIC.mark_required()
 # pydantic 2.x is strictly needed starting v0.0.70
-from pydantic import (  # noqa
-    BaseModel,
-    Discriminator,
-    Field,
-    RootModel,
-    Tag,
-    conlist,
-)
+from pydantic import (BaseModel, Discriminator, Field, RootModel, Tag,  # noqa
+                      conlist)
 
 from .data_uri import DataURI  # noqa
-from .pydantic_v2 import (  # noqa
-    INPUT_STRING,
-    ITEMS_LIMIT,
-    ITEMS_LIMIT_SMALL,
-    HttpUrl,
-)
+from .pydantic_v2 import (INPUT_STRING, ITEMS_LIMIT, ITEMS_LIMIT_SMALL,  # noqa
+                          HttpUrl)
 
 if TYPE_CHECKING:
     from infinity_emb.args import EngineArgs
-    from infinity_emb.primitives import (
-        ClassifyReturnType,
-        EmbeddingReturnType,
-        RerankReturnType,
-    )
+    from infinity_emb.primitives import (ClassifyReturnType,
+                                         EmbeddingReturnType, RerankReturnType)
 
 DataURIorURL = Union[Annotated[DataURI, str], HttpUrl]
 
@@ -242,7 +229,7 @@ class ReRankResult(BaseModel):
     """Following the Cohere protocol for Rerankers."""
 
     object: Literal["rerank"] = "rerank"
-    results: list[_ReRankObject]
+    data: list[_ReRankObject]
     model: str
     usage: _Usage
     id: str = Field(default_factory=lambda: f"infinity-{uuid4()}")
@@ -258,7 +245,7 @@ class ReRankResult(BaseModel):
         if not return_documents:
             return dict(
                 model=model,
-                results=[
+                data=[
                     dict(relevance_score=entry.relevance_score, index=entry.index)
                     for entry in scores
                 ],
